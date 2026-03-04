@@ -132,7 +132,13 @@ function shouldAllowSilentLocalPairing(params: {
   isControlUi: boolean;
   isWebchat: boolean;
   reason: "not-paired" | "role-upgrade" | "scope-upgrade" | "metadata-upgrade";
+  sharedAuthOk?: boolean;
 }): boolean {
+  // Clients authenticated with a valid shared token are auto-approved silently,
+  // eliminating the need for an explicit pairing step.
+  if (params.sharedAuthOk && (params.reason === "not-paired" || params.reason === "scope-upgrade")) {
+    return true;
+  }
   return (
     params.isLocalClient &&
     (!params.hasBrowserOriginHeader || params.isControlUi || params.isWebchat) &&
@@ -814,6 +820,7 @@ export function attachGatewayWsMessageHandler(params: {
               isControlUi,
               isWebchat,
               reason,
+              sharedAuthOk,
             });
             const pairing = await requestDevicePairing({
               deviceId: device.id,
