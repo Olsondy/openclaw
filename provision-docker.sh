@@ -85,14 +85,15 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     }
   },
   "models": {
+    "mode": "merge",
     "providers": {
-      "zhipuai": {
+      "zai": {
         "baseUrl": "https://open.bigmodel.cn/api/paas/v4/",
         "api": "openai-completions",
         "models": [
           {
-            "id": "glm-4-flash-250414",
-            "name": "GLM-4-Flash (Free)",
+            "id": "glm-4.7-flash",
+            "name": "GLM-4.7 Flash (Free)",
             "reasoning": false,
             "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -100,6 +101,13 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
             "maxTokens": 4096
           }
         ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "zai/glm-4.7-flash"
       }
     }
   }
