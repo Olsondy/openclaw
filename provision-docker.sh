@@ -76,6 +76,32 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
         "sms.send"
       ]
     }
+  },
+  "tools": {
+    "exec": {
+      "host": "node",
+      "security": "allowlist",
+      "ask": "on-miss"
+    }
+  },
+  "models": {
+    "providers": {
+      "zhipuai": {
+        "baseUrl": "https://open.bigmodel.cn/api/paas/v4/",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "glm-4-flash-250414",
+            "name": "GLM-4-Flash (Free)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 128000,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
   }
 }
 JSON
@@ -101,6 +127,13 @@ echo "==> Fixing data-directory permissions"
   -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
   "$IMAGE_NAME" \
   sh -c 'find /home/node/.openclaw -xdev -exec chown node:node {} +'
+
+# 安装飞书插件（在 gateway 启动前，避免 depends_on 约束）
+echo "==> Installing feishu plugin"
+"$RUNTIME_CMD" run --rm \
+  -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
+  "$IMAGE_NAME" \
+  node dist/index.js plugins install ./extensions/feishu
 
 # Start gateway
 echo "==> Starting gateway (project=$COMPOSE_PROJECT_NAME)"
