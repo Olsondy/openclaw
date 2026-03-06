@@ -47,6 +47,14 @@ CONFIG_FILE="$OPENCLAW_CONFIG_DIR/openclaw.json"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   cat > "$CONFIG_FILE" <<JSON
 {
+  "auth": {
+    "profiles": {
+      "zai:default": {
+        "provider": "zai",
+        "mode": "api_key"
+      }
+    }
+  },
   "gateway": {
     "port": 18789,
     "mode": "local",
@@ -111,8 +119,28 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     "defaults": {
       "model": {
         "primary": "zai/glm-4.7-flash"
+      },
+      "workspace": "/home/node/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
       }
     }
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
   }
 }
 JSON
