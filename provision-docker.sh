@@ -152,7 +152,13 @@ fi
 # Build image only if not already present
 if ! "$RUNTIME_CMD" image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   echo "==> Building image: $IMAGE_NAME (first run only)"
+  BUILD_ARGS=()
+  # Forward npm registry mirror for pnpm install inside Docker build
+  if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
+    BUILD_ARGS+=(--build-arg "NPM_CONFIG_REGISTRY=$NPM_CONFIG_REGISTRY")
+  fi
   "$RUNTIME_CMD" build \
+    "${BUILD_ARGS[@]}" \
     -t "$IMAGE_NAME" \
     -f "$ROOT_DIR/Dockerfile" \
     "$ROOT_DIR"
@@ -169,7 +175,12 @@ echo "==> Fixing data-directory permissions"
 
 # 安装飞书插件（在 gateway 启动前，避免 depends_on 约束）
 echo "==> Installing feishu plugin"
+PLUGIN_ENV=()
+if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
+  PLUGIN_ENV+=(-e "NPM_CONFIG_REGISTRY=$NPM_CONFIG_REGISTRY")
+fi
 "$RUNTIME_CMD" run --rm \
+  "${PLUGIN_ENV[@]}" \
   -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
   "$IMAGE_NAME" \
   node dist/index.js plugins install ./extensions/feishu
