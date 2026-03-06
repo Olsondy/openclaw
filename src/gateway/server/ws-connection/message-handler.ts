@@ -132,13 +132,7 @@ function shouldAllowSilentLocalPairing(params: {
   isControlUi: boolean;
   isWebchat: boolean;
   reason: "not-paired" | "role-upgrade" | "scope-upgrade" | "metadata-upgrade";
-  sharedAuthOk?: boolean;
 }): boolean {
-  // Clients authenticated with a valid shared token are auto-approved silently,
-  // eliminating the need for an explicit pairing step.
-  if (params.sharedAuthOk && (params.reason === "not-paired" || params.reason === "scope-upgrade")) {
-    return true;
-  }
   return (
     params.isLocalClient &&
     (!params.hasBrowserOriginHeader || params.isControlUi || params.isWebchat) &&
@@ -338,15 +332,15 @@ export function attachGatewayWsMessageHandler(params: {
   if (hasUntrustedProxyHeaders) {
     logWsControl.warn(
       "Proxy headers detected from untrusted address. " +
-        "Connection will not be treated as local. " +
-        "Configure gateway.trustedProxies to restore local client detection behind your proxy.",
+      "Connection will not be treated as local. " +
+      "Configure gateway.trustedProxies to restore local client detection behind your proxy.",
     );
   }
   if (!hostIsLocalish && isLoopbackAddress(remoteAddr) && !hasProxyHeaders) {
     logWsControl.warn(
       "Loopback connection with non-local Host header. " +
-        "Treating it as remote. If you're behind a reverse proxy, " +
-        "set gateway.trustedProxies and forward X-Forwarded-For/X-Real-IP.",
+      "Treating it as remote. If you're behind a reverse proxy, " +
+      "set gateway.trustedProxies and forward X-Forwarded-For/X-Real-IP.",
     );
   }
 
@@ -366,7 +360,7 @@ export function attachGatewayWsMessageHandler(params: {
     authRateLimiter,
   } = browserSecurity;
 
-  socket.on("message", async (data) => {
+  socket.on("message", async (data: any) => {
     if (isClosed()) {
       return;
     }
@@ -820,7 +814,6 @@ export function attachGatewayWsMessageHandler(params: {
               isControlUi,
               isWebchat,
               reason,
-              sharedAuthOk,
             });
             const pairing = await requestDevicePairing({
               deviceId: device.id,
@@ -1047,11 +1040,11 @@ export function attachGatewayWsMessageHandler(params: {
           canvasHostUrl: scopedCanvasHostUrl,
           auth: deviceToken
             ? {
-                deviceToken: deviceToken.token,
-                role: deviceToken.role,
-                scopes: deviceToken.scopes,
-                issuedAtMs: deviceToken.rotatedAtMs ?? deviceToken.createdAtMs,
-              }
+              deviceToken: deviceToken.token,
+              role: deviceToken.role,
+              scopes: deviceToken.scopes,
+              issuedAtMs: deviceToken.rotatedAtMs ?? deviceToken.createdAtMs,
+            }
             : undefined,
           policy: {
             maxPayload: MAX_PAYLOAD_BYTES,
