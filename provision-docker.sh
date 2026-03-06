@@ -82,7 +82,10 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
       "host": "node",
       "security": "allowlist",
       "ask": "on-miss"
-    }
+    },
+    "profile": "messaging",
+    "alsoAllow": ["group:fs", "gateway", "group:runtime"],
+    "fs": { "workspaceOnly": true }
   },
   "models": {
     "mode": "merge",
