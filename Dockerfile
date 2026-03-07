@@ -1,3 +1,20 @@
+# Opt-in extension dependencies at build time (space-separated directory names).
+# Example: docker build --build-arg OPENCLAW_EXTENSIONS="diagnostics-otel matrix" .
+#
+# This stage extracts only extension package manifests so dependency install can
+# remain cache-friendly without copying the full extension source tree first.
+ARG OPENCLAW_EXTENSIONS=""
+FROM node:22-bookworm@sha256:cd7bcd2e7a1e6f72052feb023c7f6b722205d3fcab7bbcbd2d1bfdab10b1e935 AS ext-deps
+ARG OPENCLAW_EXTENSIONS
+COPY extensions /tmp/extensions
+RUN mkdir -p /out && \
+    for ext in $OPENCLAW_EXTENSIONS; do \
+      if [ -f "/tmp/extensions/$ext/package.json" ]; then \
+        mkdir -p "/out/$ext" && \
+        cp "/tmp/extensions/$ext/package.json" "/out/$ext/package.json"; \
+      fi; \
+    done
+
 FROM node:22-bookworm@sha256:cd7bcd2e7a1e6f72052feb023c7f6b722205d3fcab7bbcbd2d1bfdab10b1e935
 
 # OCI base-image metadata for downstream image consumers.
@@ -32,9 +49,9 @@ RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY --chown=node:node ui/package.json ./ui/package.json
-COPY --chown=node:node extensions ./extensions
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node scripts ./scripts
+COPY --from=ext-deps --chown=node:node /out/ ./extensions/
 
 USER node
 # Reduce OOM risk on low-memory hosts during dependency installation.

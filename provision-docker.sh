@@ -30,6 +30,9 @@ fi
 : "${OPENCLAW_BRIDGE_PORT:?OPENCLAW_BRIDGE_PORT is required}"
 : "${OPENCLAW_GATEWAY_TOKEN:?OPENCLAW_GATEWAY_TOKEN is required}"
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-lan}"
+# Pre-install extension deps required by bundled plugins enabled during provision.
+# Allow explicit empty override by exporting OPENCLAW_EXTENSIONS="".
+OPENCLAW_EXTENSIONS="${OPENCLAW_EXTENSIONS-feishu}"
 
 echo "==> Provisioning instance: $COMPOSE_PROJECT_NAME (runtime=$RUNTIME_CMD)"
 echo "    Config dir:  $OPENCLAW_CONFIG_DIR"
@@ -156,6 +159,9 @@ if ! "$RUNTIME_CMD" image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   # Forward npm registry mirror for pnpm install inside Docker build
   if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
     BUILD_ARGS+=(--build-arg "NPM_CONFIG_REGISTRY=$NPM_CONFIG_REGISTRY")
+  fi
+  if [[ -n "${OPENCLAW_EXTENSIONS:-}" ]]; then
+    BUILD_ARGS+=(--build-arg "OPENCLAW_EXTENSIONS=$OPENCLAW_EXTENSIONS")
   fi
   "$RUNTIME_CMD" build \
     "${BUILD_ARGS[@]}" \
