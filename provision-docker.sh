@@ -173,17 +173,12 @@ echo "==> Fixing data-directory permissions"
   "$IMAGE_NAME" \
   sh -c 'find /home/node/.openclaw -xdev -exec chown node:node {} +'
 
-# 安装飞书插件（在 gateway 启动前，避免 depends_on 约束）
-echo "==> Installing feishu plugin"
-PLUGIN_ENV=()
-if [[ -n "${NPM_CONFIG_REGISTRY:-}" ]]; then
-  PLUGIN_ENV+=(-e "NPM_CONFIG_REGISTRY=$NPM_CONFIG_REGISTRY")
-fi
+# 启用内置飞书插件（避免复制到 ~/.openclaw/extensions 触发非 bundled 插件告警）
+echo "==> Enabling bundled feishu plugin"
 "$RUNTIME_CMD" run --rm \
-  "${PLUGIN_ENV[@]}" \
   -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
   "$IMAGE_NAME" \
-  node dist/index.js plugins install ./extensions/feishu
+  node dist/index.js plugins enable feishu
 
 # Start gateway
 echo "==> Starting gateway (project=$COMPOSE_PROJECT_NAME)"
