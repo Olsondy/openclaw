@@ -12,6 +12,7 @@ import { parseAgentSessionKey, resolveAgentIdFromSessionKey } from "../routing/s
 import { markBackgrounded } from "./bash-process-registry.js";
 import { processGatewayAllowlist } from "./bash-tools.exec-host-gateway.js";
 import { executeNodeHostCommand } from "./bash-tools.exec-host-node.js";
+import { listNodes } from "./tools/nodes-utils.js";
 import {
   DEFAULT_MAX_OUTPUT,
   DEFAULT_PATH,
@@ -399,28 +400,34 @@ export function createExecTool(
       }
 
       if (host === "node") {
-        return executeNodeHostCommand({
-          command: params.command,
-          workdir,
-          env,
-          requestedEnv: params.env,
-          requestedNode: params.node?.trim(),
-          boundNode: defaults?.node?.trim(),
-          sessionKey: defaults?.sessionKey,
-          turnSourceChannel: defaults?.messageProvider,
-          turnSourceTo: defaults?.currentChannelId,
-          turnSourceAccountId: defaults?.accountId,
-          turnSourceThreadId: defaults?.currentThreadTs,
-          agentId,
-          security,
-          ask,
-          timeoutSec: params.timeout,
-          defaultTimeoutSec,
-          approvalRunningNoticeMs,
-          warnings,
-          notifySessionKey,
-          trustedSafeBinDirs,
-        });
+        const availableNodes = await listNodes({});
+        if (availableNodes.length > 0) {
+          return executeNodeHostCommand({
+            command: params.command,
+            workdir,
+            env,
+            requestedEnv: params.env,
+            requestedNode: params.node?.trim(),
+            boundNode: defaults?.node?.trim(),
+            sessionKey: defaults?.sessionKey,
+            turnSourceChannel: defaults?.messageProvider,
+            turnSourceTo: defaults?.currentChannelId,
+            turnSourceAccountId: defaults?.accountId,
+            turnSourceThreadId: defaults?.currentThreadTs,
+            agentId,
+            security,
+            ask,
+            timeoutSec: params.timeout,
+            defaultTimeoutSec,
+            approvalRunningNoticeMs,
+            warnings,
+            notifySessionKey,
+            trustedSafeBinDirs,
+          });
+        }
+        // No paired node available: fall back to local execution
+        logInfo("exec host=node: no paired node available, falling back to local execution");
+        warnings.push("⚠️ No paired node available, running locally in container.");
       }
 
       if (host === "gateway" && !bypassApprovals) {

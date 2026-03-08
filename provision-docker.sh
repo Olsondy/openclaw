@@ -45,6 +45,21 @@ mkdir -p "$OPENCLAW_CONFIG_DIR/identity"
 mkdir -p "$OPENCLAW_CONFIG_DIR/agents/main/agent"
 mkdir -p "$OPENCLAW_CONFIG_DIR/agents/main/sessions"
 
+# Pre-build workspace memory directory and global MEMORY.md
+mkdir -p "$OPENCLAW_WORKSPACE_DIR/memory"
+MEMORY_FILE="$OPENCLAW_WORKSPACE_DIR/memory/MEMORY.md"
+if [[ ! -f "$MEMORY_FILE" ]]; then
+  cat > "$MEMORY_FILE" <<'MEMORY'
+# Agent Memory
+
+- Workspace: /home/node/.openclaw/workspace
+- Media files (inbound images): /home/node/.openclaw/media/inbound/
+- File access is NOT limited to workspace (tools.fs.workspaceOnly = false)
+- To list directory contents: use exec tool with `ls /path/` — read tool cannot read directories (EISDIR)
+MEMORY
+  echo "==> Pre-seeded $MEMORY_FILE"
+fi
+
 # Pre-seed openclaw.json (replaces interactive onboard)
 CONFIG_FILE="$OPENCLAW_CONFIG_DIR/openclaw.json"
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -89,20 +104,27 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     }
   },
   "tools": {
+    "profile": "messaging",
+    "alsoAllow": ["group:fs", "group:runtime"],
     "exec": {
       "host": "node",
-      "security": "allowlist",
+      "security": "full",
       "ask": "on-miss"
     },
-    "profile": "messaging",
-    "alsoAllow": ["group:fs", "gateway", "group:runtime"],
-    "fs": { "workspaceOnly": true }
+    "fs": { "workspaceOnly": false },
+    "media": {
+      "image": {
+        "models": [
+          { "type": "provider", "provider": "zai", "model": "glm-4.6V-FlashX" }
+        ]
+      }
+    }
   },
   "models": {
     "mode": "merge",
     "providers": {
       "zai": {
-        "baseUrl": "https://open.bigmodel.cn/api/paas/v4/",
+        "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
         "api": "openai-completions",
         "models": [
           {
@@ -144,6 +166,13 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   },
   "session": {
     "dmScope": "per-channel-peer"
+  },
+  "plugins": {
+    "entries": {
+      "feishu": {
+        "enabled": true
+      }
+    }
   }
 }
 JSON
@@ -178,13 +207,6 @@ echo "==> Fixing data-directory permissions"
   -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
   "$IMAGE_NAME" \
   sh -c 'find /home/node/.openclaw -xdev -exec chown node:node {} +'
-
-# 启用内置飞书插件（避免复制到 ~/.openclaw/extensions 触发非 bundled 插件告警）
-echo "==> Enabling bundled feishu plugin"
-"$RUNTIME_CMD" run --rm \
-  -v "${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw" \
-  "$IMAGE_NAME" \
-  node dist/index.js plugins enable feishu
 
 # Start gateway
 echo "==> Starting gateway (project=$COMPOSE_PROJECT_NAME)"
