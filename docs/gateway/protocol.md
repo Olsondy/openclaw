@@ -169,6 +169,15 @@ The Gateway treats these as **claims** and enforces server-side allowlists.
 
 - Nodes may call `skills.bins` to fetch the current list of skill executables
   for auto-allow checks.
+- Nodes may call `channel.auth.status` to query whether any channel
+  authorization flow is currently pending (`required=true`).
+
+### Node-only channel auth notifications
+
+- The gateway emits `channel.auth.required` and `channel.auth.resolved` as
+  `type:"event"` frames to currently connected `role: node` clients only.
+- These events are notification-only and intentionally carry no payload; nodes
+  should call `channel.auth.status` after reconnect to restore state.
 
 ### Operator helper methods
 

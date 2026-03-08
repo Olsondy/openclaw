@@ -24,6 +24,7 @@ const NODE_ROLE_METHODS = new Set([
   "node.event",
   "node.canvas.capability.refresh",
   "skills.bins",
+  "channel.auth.status",
 ]);
 
 const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {

@@ -41,6 +41,8 @@ import {
   ToolsCatalogResultSchema,
 } from "./agents-models-skills.js";
 import {
+  ChannelAuthStatusParamsSchema,
+  ChannelAuthStatusResultSchema,
   ChannelsLogoutParamsSchema,
   TalkConfigParamsSchema,
   TalkConfigResultSchema,
@@ -217,6 +219,8 @@ export const ProtocolSchemas = {
   ChannelsStatusParams: ChannelsStatusParamsSchema,
   ChannelsStatusResult: ChannelsStatusResultSchema,
   ChannelsLogoutParams: ChannelsLogoutParamsSchema,
+  ChannelAuthStatusParams: ChannelAuthStatusParamsSchema,
+  ChannelAuthStatusResult: ChannelAuthStatusResultSchema,
   WebLoginStartParams: WebLoginStartParamsSchema,
   WebLoginWaitParams: WebLoginWaitParamsSchema,
   AgentSummary: AgentSummarySchema,

@@ -23,6 +23,10 @@ import { applyPluginAutoEnable } from "../config/plugin-auto-enable.js";
 import { resolveMainSessionKey } from "../config/sessions.js";
 import { clearAgentRunContext, onAgentEvent } from "../infra/agent-events.js";
 import {
+  onChannelAuthRequired,
+  onChannelAuthResolved,
+} from "../infra/channel-auth-events.js";
+import {
   ensureControlUiAssetsBuilt,
   resolveControlUiRootOverrideSync,
   resolveControlUiRootSync,
@@ -683,6 +687,34 @@ export async function startGatewayServer(
         broadcast("heartbeat", evt, { dropIfSlow: true });
       });
 
+  const resolveNodeConnIds = (): ReadonlySet<string> => {
+    const ids = new Set<string>();
+    for (const c of clients) {
+      if ((c.connect.role ?? "operator") === "node") {
+        ids.add(c.connId);
+      }
+    }
+    return ids;
+  };
+
+  const channelAuthRequiredUnsub = minimalTestGateway
+    ? null
+    : onChannelAuthRequired(() => {
+        const nodeIds = resolveNodeConnIds();
+        if (nodeIds.size > 0) {
+          broadcastToConnIds("channel.auth.required", undefined, nodeIds);
+        }
+      });
+
+  const channelAuthResolvedUnsub = minimalTestGateway
+    ? null
+    : onChannelAuthResolved(() => {
+        const nodeIds = resolveNodeConnIds();
+        if (nodeIds.size > 0) {
+          broadcastToConnIds("channel.auth.resolved", undefined, nodeIds);
+        }
+      });
+
   let heartbeatRunner: HeartbeatRunner = minimalTestGateway
     ? {
         stop: () => {},
@@ -960,6 +992,8 @@ export async function startGatewayServer(
     dedupeCleanup,
     agentUnsub,
     heartbeatUnsub,
+    channelAuthRequiredUnsub,
+    channelAuthResolvedUnsub,
     chatRunState,
     clients,
     configReloader,

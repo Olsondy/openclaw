@@ -44,6 +44,12 @@ export {
   normalizeSecretInputString,
 } from "../config/types.secrets.js";
 export { createDedupeCache } from "../infra/dedupe.js";
+export {
+  emitChannelAuthRequired,
+  emitChannelAuthResolved,
+  type ChannelAuthRequiredEvent,
+  type ChannelAuthResolvedEvent,
+} from "../infra/channel-auth-events.js";
 export { installRequestBodyLimitGuard } from "../infra/http-body.js";
 export { fetchWithSsrFGuard } from "../infra/net/fetch-guard.js";
 export { emptyPluginConfigSchema } from "../plugins/config-schema.js";

@@ -7,6 +7,7 @@ const BASE_METHODS = [
   "logs.tail",
   "channels.status",
   "channels.logout",
+  "channel.auth.status",
   "status",
   "usage.status",
   "usage.cost",
@@ -123,5 +124,7 @@ export const GATEWAY_EVENTS = [
   "voicewake.changed",
   "exec.approval.requested",
   "exec.approval.resolved",
+  "channel.auth.required",
+  "channel.auth.resolved",
   GATEWAY_EVENT_UPDATE_AVAILABLE,
 ];

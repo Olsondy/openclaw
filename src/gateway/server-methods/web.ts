@@ -1,4 +1,8 @@
 import { listChannelPlugins } from "../../channels/plugins/index.js";
+import type { ChannelPlugin } from "../../channels/plugins/types.plugin.js";
+import { loadConfig } from "../../config/config.js";
+import { emitChannelAuthRequired, emitChannelAuthResolved } from "../../infra/channel-auth-events.js";
+import { DEFAULT_ACCOUNT_ID } from "../../routing/session-key.js";
 import {
   ErrorCodes,
   errorShape,
@@ -17,9 +21,24 @@ const resolveWebLoginProvider = () =>
   ) ?? null;
 
 function resolveAccountId(params: unknown): string | undefined {
-  return typeof (params as { accountId?: unknown }).accountId === "string"
-    ? (params as { accountId?: string }).accountId
-    : undefined;
+  const raw =
+    typeof (params as { accountId?: unknown }).accountId === "string"
+      ? (params as { accountId?: string }).accountId
+      : undefined;
+  const trimmed = raw?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function resolveAuthAccountId(provider: ChannelPlugin, accountId: string | undefined): string {
+  if (accountId) {
+    return accountId;
+  }
+  const cfg = loadConfig();
+  return (
+    provider.config.defaultAccountId?.(cfg) ??
+    provider.config.listAccountIds(cfg)[0] ??
+    DEFAULT_ACCOUNT_ID
+  );
 }
 
 function respondProviderUnavailable(respond: RespondFn) {
@@ -72,6 +91,12 @@ export const webHandlers: GatewayRequestHandlers = {
         verbose: Boolean((params as { verbose?: boolean }).verbose),
         accountId,
       });
+      if (typeof result.qrDataUrl === "string" && result.qrDataUrl.trim().length > 0) {
+        emitChannelAuthRequired({
+          channelId: provider.id,
+          accountId: resolveAuthAccountId(provider, accountId),
+        });
+      }
       respond(true, result, undefined);
     } catch (err) {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, formatForLog(err)));
@@ -108,6 +133,10 @@ export const webHandlers: GatewayRequestHandlers = {
         accountId,
       });
       if (result.connected) {
+        emitChannelAuthResolved({
+          channelId: provider.id,
+          accountId: resolveAuthAccountId(provider, accountId),
+        });
         await context.startChannel(provider.id, accountId);
       }
       respond(true, result, undefined);

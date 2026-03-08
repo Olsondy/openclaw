@@ -5,6 +5,8 @@ import {
   clearHistoryEntriesIfEnabled,
   createScopedPairingAccess,
   DEFAULT_GROUP_HISTORY_LIMIT,
+  emitChannelAuthRequired,
+  emitChannelAuthResolved,
   type HistoryEntry,
   normalizeAgentId,
   recordPendingHistoryEntryIfEnabled,
@@ -98,9 +100,13 @@ const SENDER_NAME_TTL_MS = 10 * 60 * 1000;
 const senderNameCache = new Map<string, { name: string; expireAt: number }>();
 
 // Cache permission errors to avoid spamming the user with repeated notifications.
-// Key: appId or "default", Value: timestamp of last notification
+// Key: accountId, Value: timestamp of last notification
 const permissionErrorNotifiedAt = new Map<string, number>();
 const PERMISSION_ERROR_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
+// Track pending auth-required state so we can emit auth-resolved when permission is regained.
+// Key: accountId
+const pendingAuthRequired = new Set<string>();
 
 type SenderNameResult = {
   name?: string;
@@ -939,15 +945,29 @@ export async function handleFeishuMessage(params: {
     if (senderResult.name) ctx = { ...ctx, senderName: senderResult.name };
 
     // Track permission error to inform agent later (with cooldown to avoid repetition)
+    const authAccountId = account.accountId;
     if (senderResult.permissionError) {
-      const appKey = account.appId ?? "default";
       const now = Date.now();
-      const lastNotified = permissionErrorNotifiedAt.get(appKey) ?? 0;
+      const lastNotified = permissionErrorNotifiedAt.get(authAccountId) ?? 0;
 
       if (now - lastNotified > PERMISSION_ERROR_COOLDOWN_MS) {
-        permissionErrorNotifiedAt.set(appKey, now);
+        permissionErrorNotifiedAt.set(authAccountId, now);
         permissionErrorForAgent = senderResult.permissionError;
+        if (senderResult.permissionError.grantUrl) {
+          pendingAuthRequired.add(authAccountId);
+          emitChannelAuthRequired({
+            channelId: "feishu",
+            accountId: authAccountId,
+          });
+        }
       }
+    } else if (senderResult.name && pendingAuthRequired.has(authAccountId)) {
+      // Sender name resolved successfully — auth must have been granted
+      pendingAuthRequired.delete(authAccountId);
+      emitChannelAuthResolved({
+        channelId: "feishu",
+        accountId: authAccountId,
+      });
     }
   }
 

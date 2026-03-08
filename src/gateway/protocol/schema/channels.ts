@@ -150,6 +150,22 @@ export const ChannelsLogoutParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ChannelAuthStatusParamsSchema = Type.Object(
+  {
+    channelId: Type.Optional(NonEmptyString),
+    accountId: Type.Optional(NonEmptyString),
+  },
+  { additionalProperties: false },
+);
+
+export const ChannelAuthStatusResultSchema = Type.Object(
+  {
+    required: Type.Boolean(),
+    updatedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+  },
+  { additionalProperties: false },
+);
+
 export const WebLoginStartParamsSchema = Type.Object(
   {
     force: Type.Optional(Type.Boolean()),

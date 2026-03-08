@@ -344,6 +344,20 @@ export {
 } from "../infra/device-pairing.js";
 export { createDedupeCache } from "../infra/dedupe.js";
 export type { DedupeCache } from "../infra/dedupe.js";
+export {
+  emitChannelAuthRequired,
+  emitChannelAuthResolved,
+  getChannelAuthStatus,
+  onChannelAuthRequired,
+  onChannelAuthResolved,
+} from "../infra/channel-auth-events.js";
+export type {
+  ChannelAuthKey,
+  ChannelAuthRequiredEvent,
+  ChannelAuthResolvedEvent,
+  ChannelAuthStatusQuery,
+  ChannelAuthStatusSnapshot,
+} from "../infra/channel-auth-events.js";
 export { createPersistentDedupe } from "./persistent-dedupe.js";
 export type {
   PersistentDedupe,
