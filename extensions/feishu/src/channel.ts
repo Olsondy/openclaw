@@ -91,7 +91,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
   mentions: {
     stripPatterns: () => ['<at user_id="[^"]*">[^<]*</at>'],
   },
-  reload: { configPrefixes: ["channels.feishu"] },
+  reload: { configPrefixes: ["channels.feishu", "bindings"] },
   configSchema: {
     schema: {
       type: "object",

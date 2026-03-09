@@ -9,6 +9,14 @@ vi.mock("./probe.js", () => ({
 
 import { feishuPlugin } from "./channel.js";
 
+describe("feishuPlugin.reload", () => {
+  it("reloads when channel config or bindings change", () => {
+    expect(feishuPlugin.reload?.configPrefixes).toEqual(
+      expect.arrayContaining(["channels.feishu", "bindings"]),
+    );
+  });
+});
+
 describe("feishuPlugin.status.probeAccount", () => {
   it("uses current account credentials for multi-account config", async () => {
     const cfg = {
