@@ -10,6 +10,9 @@
 #   OPENCLAW_BRIDGE_PORT      — host port for bridge  (18790 inside container)
 #   OPENCLAW_GATEWAY_TOKEN    — pre-generated 64-char hex token
 #   OPENCLAW_GATEWAY_BIND     — bind mode (default: lan)
+# Optional build args passthrough:
+#   OPENCLAW_EXTENSIONS       — extension folders preinstalled during image build (default: feishu)
+#   OPENCLAW_INSTALL_BROWSER  — non-empty to bake Chromium + Xvfb into image
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +36,7 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-lan}"
 # Pre-install extension deps required by bundled plugins enabled during provision.
 # Allow explicit empty override by exporting OPENCLAW_EXTENSIONS="".
 OPENCLAW_EXTENSIONS="${OPENCLAW_EXTENSIONS-feishu}"
+OPENCLAW_INSTALL_BROWSER="${OPENCLAW_INSTALL_BROWSER:-}"
 
 echo "==> Provisioning instance: $COMPOSE_PROJECT_NAME (runtime=$RUNTIME_CMD)"
 echo "    Config dir:  $OPENCLAW_CONFIG_DIR"
@@ -192,6 +196,9 @@ if ! "$RUNTIME_CMD" image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   if [[ -n "${OPENCLAW_EXTENSIONS:-}" ]]; then
     BUILD_ARGS+=(--build-arg "OPENCLAW_EXTENSIONS=$OPENCLAW_EXTENSIONS")
   fi
+  if [[ -n "${OPENCLAW_INSTALL_BROWSER:-}" ]]; then
+    BUILD_ARGS+=(--build-arg "OPENCLAW_INSTALL_BROWSER=$OPENCLAW_INSTALL_BROWSER")
+  fi
   "$RUNTIME_CMD" build \
     "${BUILD_ARGS[@]}" \
     -t "$IMAGE_NAME" \
@@ -199,6 +206,10 @@ if ! "$RUNTIME_CMD" image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
     "$ROOT_DIR"
 else
   echo "==> Image $IMAGE_NAME exists, skipping build."
+  if [[ -n "${OPENCLAW_INSTALL_BROWSER:-}" ]]; then
+    echo "    NOTE: OPENCLAW_INSTALL_BROWSER is set but did not apply because image build was skipped."
+    echo "          Rebuild image manually (or remove existing image) to bake browser dependencies."
+  fi
 fi
 
 # Fix bind-mount directory ownership (container runs as node uid=1000)
