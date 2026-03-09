@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { withEnvAsync } from "../test-utils/env.js";
 import { pathExists } from "../utils.js";
 import { resolveStableNodePath } from "./stable-node-path.js";
-import { runGatewayUpdate } from "./update-runner.js";
+import { detectGatewayUpdateSupport, runGatewayUpdate } from "./update-runner.js";
 
 type CommandResponse = { stdout?: string; stderr?: string; code?: number | null };
 type CommandResult = { stdout: string; stderr: string; code: number | null };
@@ -326,6 +326,52 @@ describe("runGatewayUpdate", () => {
     expect(result.reason).toBe("not-git-install");
     expect(calls.some((call) => call.startsWith("pnpm add -g"))).toBe(false);
     expect(calls.some((call) => call.startsWith("npm i -g"))).toBe(false);
+  });
+
+  it("detects unsupported local package installs for update.run", async () => {
+    await fs.writeFile(
+      path.join(tempDir, "package.json"),
+      JSON.stringify({ name: "openclaw", packageManager: "pnpm@8.0.0" }),
+      "utf-8",
+    );
+    const { runner } = createRunner({
+      [`git -C ${tempDir} rev-parse --show-toplevel`]: { code: 1 },
+      "npm root -g": { code: 1 },
+      "pnpm root -g": { code: 1 },
+    });
+
+    const support = await detectGatewayUpdateSupport({
+      cwd: tempDir,
+      runCommand: async (argv, _opts) => runner(argv),
+      timeoutMs: 5000,
+    });
+
+    expect(support).toEqual({
+      supported: false,
+      mode: "none",
+      root: tempDir,
+      reason: "not-git-install",
+    });
+  });
+
+  it("detects git checkout installs as update.run supported", async () => {
+    await setupGitCheckout();
+    const { runner } = createRunner({
+      [`git -C ${tempDir} rev-parse --show-toplevel`]: { stdout: tempDir },
+    });
+
+    const support = await detectGatewayUpdateSupport({
+      cwd: tempDir,
+      runCommand: async (argv, _opts) => runner(argv),
+      timeoutMs: 5000,
+    });
+
+    expect(support).toEqual({
+      supported: true,
+      mode: "git",
+      root: tempDir,
+      reason: "git-checkout",
+    });
   });
 
   async function runNpmGlobalUpdateCase(params: {

@@ -48,6 +48,18 @@ export type UpdateRunResult = {
   durationMs: number;
 };
 
+export type GatewayUpdateSupport = {
+  supported: boolean;
+  mode: "git" | "global" | "none";
+  root?: string;
+  reason:
+    | "git-checkout"
+    | "global-install"
+    | "not-openclaw-root"
+    | "no-openclaw-root"
+    | "not-git-install";
+};
+
 type CommandRunner = (
   argv: string[],
   options: CommandOptions,
@@ -315,6 +327,68 @@ function managerInstallArgs(manager: "pnpm" | "bun" | "npm") {
 
 function normalizeTag(tag?: string) {
   return normalizePackageTagInput(tag, ["openclaw", DEFAULT_PACKAGE_NAME]) ?? "latest";
+}
+
+export async function detectGatewayUpdateSupport(
+  opts: UpdateRunnerOptions = {},
+): Promise<GatewayUpdateSupport> {
+  const runCommand =
+    opts.runCommand ??
+    (async (argv, options) => {
+      const res = await runCommandWithTimeout(argv, options);
+      return { stdout: res.stdout, stderr: res.stderr, code: res.code };
+    });
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const candidates = buildStartDirs(opts);
+  const pkgRoot = await findPackageRoot(candidates);
+
+  let gitRoot = await resolveGitRoot(runCommand, candidates, timeoutMs);
+  if (gitRoot && pkgRoot && path.resolve(gitRoot) !== path.resolve(pkgRoot)) {
+    gitRoot = null;
+  }
+
+  if (gitRoot && !pkgRoot) {
+    return {
+      supported: false,
+      mode: "none",
+      root: gitRoot,
+      reason: "not-openclaw-root",
+    };
+  }
+
+  if (gitRoot && pkgRoot && path.resolve(gitRoot) === path.resolve(pkgRoot)) {
+    return {
+      supported: true,
+      mode: "git",
+      root: gitRoot,
+      reason: "git-checkout",
+    };
+  }
+
+  if (!pkgRoot) {
+    return {
+      supported: false,
+      mode: "none",
+      reason: "no-openclaw-root",
+    };
+  }
+
+  const globalManager = await detectGlobalInstallManagerForRoot(runCommand, pkgRoot, timeoutMs);
+  if (globalManager) {
+    return {
+      supported: true,
+      mode: "global",
+      root: pkgRoot,
+      reason: "global-install",
+    };
+  }
+
+  return {
+    supported: false,
+    mode: "none",
+    root: pkgRoot,
+    reason: "not-git-install",
+  };
 }
 
 export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<UpdateRunResult> {

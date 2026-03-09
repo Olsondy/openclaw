@@ -39,6 +39,10 @@ vi.mock("../process/exec.js", () => ({
   runCommandWithTimeout: vi.fn(),
 }));
 
+vi.mock("./update-runner.js", () => ({
+  detectGatewayUpdateSupport: vi.fn(),
+}));
+
 describe("update-startup", () => {
   let suiteRoot = "";
   let suiteCase = 0;
@@ -49,6 +53,7 @@ describe("update-startup", () => {
   let checkUpdateStatus: (typeof import("./update-check.js"))["checkUpdateStatus"];
   let resolveNpmChannelTag: (typeof import("./update-check.js"))["resolveNpmChannelTag"];
   let runCommandWithTimeout: (typeof import("../process/exec.js"))["runCommandWithTimeout"];
+  let detectGatewayUpdateSupport: (typeof import("./update-runner.js"))["detectGatewayUpdateSupport"];
   let runGatewayUpdateCheck: (typeof import("./update-startup.js"))["runGatewayUpdateCheck"];
   let scheduleGatewayUpdateCheck: (typeof import("./update-startup.js"))["scheduleGatewayUpdateCheck"];
   let getUpdateAvailable: (typeof import("./update-startup.js"))["getUpdateAvailable"];
@@ -77,6 +82,7 @@ describe("update-startup", () => {
       ({ resolveOpenClawPackageRoot } = await import("./openclaw-root.js"));
       ({ checkUpdateStatus, resolveNpmChannelTag } = await import("./update-check.js"));
       ({ runCommandWithTimeout } = await import("../process/exec.js"));
+      ({ detectGatewayUpdateSupport } = await import("./update-runner.js"));
       ({
         runGatewayUpdateCheck,
         scheduleGatewayUpdateCheck,
@@ -89,6 +95,13 @@ describe("update-startup", () => {
     vi.mocked(checkUpdateStatus).mockClear();
     vi.mocked(resolveNpmChannelTag).mockClear();
     vi.mocked(runCommandWithTimeout).mockClear();
+    vi.mocked(detectGatewayUpdateSupport).mockClear();
+    vi.mocked(detectGatewayUpdateSupport).mockResolvedValue({
+      supported: true,
+      mode: "git",
+      root: "/opt/openclaw",
+      reason: "git-checkout",
+    });
     resetUpdateAvailableStateForTest();
   });
 
@@ -253,6 +266,55 @@ describe("update-startup", () => {
       latestVersion: "2.0.0",
       channel: "latest",
     });
+  });
+
+  it("suppresses persisted update hints when update.run is unsupported", async () => {
+    const statePath = path.join(tempDir, "update-check.json");
+    await fs.writeFile(
+      statePath,
+      JSON.stringify(
+        {
+          lastCheckedAt: new Date(Date.now()).toISOString(),
+          lastAvailableVersion: "2.0.0",
+          lastAvailableTag: "latest",
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+
+    await runGatewayUpdateCheck({
+      cfg: { update: { channel: "stable" } },
+      log: { info: vi.fn() },
+      isNixMode: false,
+      allowInTests: true,
+    });
+    expect(getUpdateAvailable()).toEqual({
+      currentVersion: "1.0.0",
+      latestVersion: "2.0.0",
+      channel: "latest",
+    });
+
+    vi.mocked(detectGatewayUpdateSupport).mockResolvedValue({
+      supported: false,
+      mode: "none",
+      root: "/app",
+      reason: "not-git-install",
+    });
+    vi.mocked(checkUpdateStatus).mockClear();
+    const onUpdateAvailableChange = vi.fn();
+    await runGatewayUpdateCheck({
+      cfg: { update: { channel: "stable" } },
+      log: { info: vi.fn() },
+      isNixMode: false,
+      allowInTests: true,
+      onUpdateAvailableChange,
+    });
+
+    expect(vi.mocked(checkUpdateStatus)).not.toHaveBeenCalled();
+    expect(getUpdateAvailable()).toBeNull();
+    expect(onUpdateAvailableChange).toHaveBeenCalledWith(null);
   });
 
   it("emits update change callback when update state clears", async () => {

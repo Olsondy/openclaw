@@ -8,6 +8,7 @@ import { runCommandWithTimeout } from "../process/exec.js";
 import { VERSION } from "../version.js";
 import { writeJsonAtomic } from "./json-files.js";
 import { resolveOpenClawPackageRoot } from "./openclaw-root.js";
+import { detectGatewayUpdateSupport } from "./update-runner.js";
 import { normalizeUpdateChannel, DEFAULT_PACKAGE_CHANNEL } from "./update-channels.js";
 import { compareSemverStrings, resolveNpmChannelTag, checkUpdateStatus } from "./update-check.js";
 
@@ -325,6 +326,23 @@ export async function runGatewayUpdateCheck(params: {
   const state = await readState(statePath);
   const now = Date.now();
   const lastCheckedAt = state.lastCheckedAt ? Date.parse(state.lastCheckedAt) : null;
+  const root = await resolveOpenClawPackageRoot({
+    moduleUrl: import.meta.url,
+    argv1: process.argv[1],
+    cwd: process.cwd(),
+  });
+  const updateSupport = await detectGatewayUpdateSupport({
+    cwd: root ?? undefined,
+    argv1: process.argv[1],
+    timeoutMs: 2500,
+  });
+  if (!updateSupport.supported) {
+    setUpdateAvailableCache({
+      next: null,
+      onUpdateAvailableChange: params.onUpdateAvailableChange,
+    });
+    return;
+  }
   if (shouldRunUpdateHints) {
     const persistedAvailable = resolvePersistedUpdateAvailable(state);
     setUpdateAvailableCache({
@@ -343,12 +361,6 @@ export async function runGatewayUpdateCheck(params: {
       return;
     }
   }
-
-  const root = await resolveOpenClawPackageRoot({
-    moduleUrl: import.meta.url,
-    argv1: process.argv[1],
-    cwd: process.cwd(),
-  });
   const status = await checkUpdateStatus({
     root,
     timeoutMs: 2500,
