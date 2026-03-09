@@ -233,6 +233,14 @@ function registerEventHandlers(
 ): void {
   const { cfg, accountId, runtime, chatHistories, fireAndForget } = context;
   const core = getFeishuRuntime();
+  const resolveCurrentConfig = (): ClawdbotConfig => {
+    try {
+      const latest = core.config.loadConfig() as ClawdbotConfig | undefined;
+      return latest ?? cfg;
+    } catch {
+      return cfg;
+    }
+  };
   const inboundDebounceMs = core.channel.debounce.resolveInboundDebounceMs({
     cfg,
     channel: "feishu",
@@ -242,15 +250,17 @@ function registerEventHandlers(
   const enqueue = createChatQueue();
   const dispatchFeishuMessage = async (event: FeishuMessageEvent) => {
     const chatId = event.message.chat_id?.trim() || "unknown";
-    const task = () =>
-      handleFeishuMessage({
-        cfg,
+    const task = () => {
+      const currentCfg = resolveCurrentConfig();
+      return handleFeishuMessage({
+        cfg: currentCfg,
         event,
         botOpenId: botOpenIds.get(accountId),
         runtime,
         chatHistories,
         accountId,
       });
+    };
     await enqueue(chatId, task);
   };
   const resolveSenderDebounceId = (event: FeishuMessageEvent): string | undefined => {
@@ -319,7 +329,7 @@ function registerEventHandlers(
       if (!text) {
         return false;
       }
-      return !core.channel.text.hasControlCommand(text, cfg);
+      return !core.channel.text.hasControlCommand(text, resolveCurrentConfig());
     },
     onFlush: async (entries) => {
       const last = entries.at(-1);
@@ -416,8 +426,9 @@ function registerEventHandlers(
       const processReaction = async () => {
         const event = data as FeishuReactionCreatedEvent;
         const myBotId = botOpenIds.get(accountId);
+        const currentCfg = resolveCurrentConfig();
         const syntheticEvent = await resolveReactionSyntheticEvent({
-          cfg,
+          cfg: currentCfg,
           accountId,
           event,
           botOpenId: myBotId,
@@ -427,7 +438,7 @@ function registerEventHandlers(
           return;
         }
         const promise = handleFeishuMessage({
-          cfg,
+          cfg: currentCfg,
           event: syntheticEvent,
           botOpenId: myBotId,
           runtime,
