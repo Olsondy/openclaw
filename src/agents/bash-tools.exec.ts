@@ -318,6 +318,17 @@ export function createExecTool(
       if (elevatedRequested) {
         host = "gateway";
       }
+      let preflightNodeList: Awaited<ReturnType<typeof listNodes>> | null = null;
+      if (host === "node") {
+        preflightNodeList = await listNodes({});
+        if (preflightNodeList.length === 0) {
+          // Route through gateway host path so PATH merge / allowlist handling
+          // remains consistent with normal local host execution.
+          host = "gateway";
+          logInfo("exec host=node: no paired node available, falling back to local execution");
+          warnings.push("⚠️ No paired node available, running locally in container.");
+        }
+      }
 
       const configuredSecurity = defaults?.security ?? (host === "sandbox" ? "deny" : "allowlist");
       const requestedSecurity = normalizeExecSecurity(params.security);
@@ -400,34 +411,29 @@ export function createExecTool(
       }
 
       if (host === "node") {
-        const availableNodes = await listNodes({});
-        if (availableNodes.length > 0) {
-          return executeNodeHostCommand({
-            command: params.command,
-            workdir,
-            env,
-            requestedEnv: params.env,
-            requestedNode: params.node?.trim(),
-            boundNode: defaults?.node?.trim(),
-            sessionKey: defaults?.sessionKey,
-            turnSourceChannel: defaults?.messageProvider,
-            turnSourceTo: defaults?.currentChannelId,
-            turnSourceAccountId: defaults?.accountId,
-            turnSourceThreadId: defaults?.currentThreadTs,
-            agentId,
-            security,
-            ask,
-            timeoutSec: params.timeout,
-            defaultTimeoutSec,
-            approvalRunningNoticeMs,
-            warnings,
-            notifySessionKey,
-            trustedSafeBinDirs,
-          });
-        }
-        // No paired node available: fall back to local execution
-        logInfo("exec host=node: no paired node available, falling back to local execution");
-        warnings.push("⚠️ No paired node available, running locally in container.");
+        return executeNodeHostCommand({
+          command: params.command,
+          workdir,
+          env,
+          availableNodes: preflightNodeList ?? undefined,
+          requestedEnv: params.env,
+          requestedNode: params.node?.trim(),
+          boundNode: defaults?.node?.trim(),
+          sessionKey: defaults?.sessionKey,
+          turnSourceChannel: defaults?.messageProvider,
+          turnSourceTo: defaults?.currentChannelId,
+          turnSourceAccountId: defaults?.accountId,
+          turnSourceThreadId: defaults?.currentThreadTs,
+          agentId,
+          security,
+          ask,
+          timeoutSec: params.timeout,
+          defaultTimeoutSec,
+          approvalRunningNoticeMs,
+          warnings,
+          notifySessionKey,
+          trustedSafeBinDirs,
+        });
       }
 
       if (host === "gateway" && !bypassApprovals) {

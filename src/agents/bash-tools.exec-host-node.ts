@@ -28,12 +28,13 @@ import {
 } from "./bash-tools.exec-runtime.js";
 import type { ExecToolDetails } from "./bash-tools.exec-types.js";
 import { callGatewayTool } from "./tools/gateway.js";
-import { listNodes, resolveNodeIdFromList } from "./tools/nodes-utils.js";
+import { listNodes, resolveNodeIdFromList, type NodeListNode } from "./tools/nodes-utils.js";
 
 export type ExecuteNodeHostCommandParams = {
   command: string;
   workdir: string;
   env: Record<string, string>;
+  availableNodes?: NodeListNode[];
   requestedEnv?: Record<string, string>;
   requestedNode?: string;
   boundNode?: string;
@@ -66,7 +67,7 @@ export async function executeNodeHostCommand(
     throw new Error(`exec node not allowed (bound to ${params.boundNode})`);
   }
   const nodeQuery = params.boundNode || params.requestedNode;
-  const nodes = await listNodes({});
+  const nodes = params.availableNodes ?? (await listNodes({}));
   if (nodes.length === 0) {
     throw new Error(
       "exec host=node requires a paired node (none available). This requires a companion app or node host.",
