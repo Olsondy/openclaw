@@ -208,6 +208,38 @@ export const SkillsUpdateParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+// ─── ClawHub search / install ────────────────────────────────────
+
+export const SkillsHubSearchParamsSchema = Type.Object(
+  {
+    query: NonEmptyString,
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
+    offset: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
+
+export type SkillsHubSearchParams = {
+  query: string;
+  limit?: number;
+  offset?: number;
+};
+
+export const SkillsHubInstallParamsSchema = Type.Object(
+  {
+    slug: NonEmptyString,
+    agentId: Type.Optional(NonEmptyString),
+    timeoutMs: Type.Optional(Type.Integer({ minimum: 1000 })),
+  },
+  { additionalProperties: false },
+);
+
+export type SkillsHubInstallParams = {
+  slug: string;
+  agentId?: string;
+  timeoutMs?: number;
+};
+
 export const ToolsCatalogParamsSchema = Type.Object(
   {
     agentId: Type.Optional(NonEmptyString),

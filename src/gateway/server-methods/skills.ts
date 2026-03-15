@@ -12,14 +12,21 @@ import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { getRemoteSkillEligibility } from "../../infra/skills-remote.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { normalizeSecretInput } from "../../utils/normalize-secret-input.js";
+import { runCommandWithTimeout } from "../../process/exec.js";
 import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
   validateSkillsBinsParams,
+  validateSkillsHubInstallParams,
+  validateSkillsHubSearchParams,
   validateSkillsInstallParams,
   validateSkillsStatusParams,
   validateSkillsUpdateParams,
+} from "../protocol/index.js";
+import type {
+  SkillsHubInstallParams,
+  SkillsHubSearchParams,
 } from "../protocol/index.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
@@ -200,5 +207,87 @@ export const skillsHandlers: GatewayRequestHandlers = {
     };
     await writeConfigFile(nextConfig);
     respond(true, { ok: true, skillKey: p.skillKey, config: current }, undefined);
+  },
+
+  // ─── ClawHub ──────────────────────────────────────────────────
+
+  "skills.hub.search": async ({ params, respond }) => {
+    if (!validateSkillsHubSearchParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.hub.search params: ${formatValidationErrors(validateSkillsHubSearchParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as SkillsHubSearchParams;
+    const timeoutMs = 30_000;
+    try {
+      const result = await runCommandWithTimeout(
+        ["npx", "--yes", "clawhub", "search", "--json", p.query],
+        { timeoutMs },
+      );
+      if (result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.UNAVAILABLE, result.stderr || result.stdout || "clawhub search failed"),
+        );
+        return;
+      }
+      let items: unknown[] = [];
+      try {
+        const parsed = JSON.parse(result.stdout);
+        items = Array.isArray(parsed) ? parsed : (parsed?.results ?? []);
+      } catch {
+        respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, "failed to parse clawhub output"));
+        return;
+      }
+      const offset = p.offset ?? 0;
+      const limit = p.limit ?? 20;
+      const page = items.slice(offset, offset + limit);
+      respond(true, { results: page, total: items.length, offset, hasMore: offset + limit < items.length }, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
+    }
+  },
+
+  "skills.hub.install": async ({ params, respond }) => {
+    if (!validateSkillsHubInstallParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid skills.hub.install params: ${formatValidationErrors(validateSkillsHubInstallParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params as SkillsHubInstallParams;
+    const timeoutMs = Math.min(Math.max(p.timeoutMs ?? 120_000, 5_000), 600_000);
+    const cfg = loadConfig();
+    const agentId = p.agentId ? normalizeAgentId(p.agentId) : resolveDefaultAgentId(cfg);
+    const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
+    try {
+      const result = await runCommandWithTimeout(
+        ["npx", "--yes", "clawhub", "install", p.slug, "--workdir", workspaceDir],
+        { timeoutMs },
+      );
+      if (result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.UNAVAILABLE, result.stderr || result.stdout || "clawhub install failed"),
+        );
+        return;
+      }
+      respond(true, { ok: true, slug: p.slug, agentId, stdout: result.stdout }, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
+    }
   },
 };
