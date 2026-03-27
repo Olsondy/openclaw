@@ -11,8 +11,10 @@
 #   OPENCLAW_GATEWAY_TOKEN    — pre-generated 64-char hex token
 #   OPENCLAW_GATEWAY_BIND     — bind mode (default: lan)
 # Optional build args passthrough:
-#   OPENCLAW_EXTENSIONS       — extension folders preinstalled during image build (default: feishu)
-#   OPENCLAW_INSTALL_BROWSER  — non-empty to bake Chromium + Xvfb into image
+#   OPENCLAW_EXTENSIONS            — extension folders preinstalled during image build (default: feishu)
+#   OPENCLAW_INSTALL_BROWSER       — non-empty to bake Chromium + Xvfb into image
+#   OPENCLAW_DOCKER_APT_PACKAGES   — space-delimited apt packages installed during image build
+#   OPENCLAW_INSTALL_DOCKER_CLI    — non-empty to bake Docker CLI into image
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,6 +39,8 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-lan}"
 # Allow explicit empty override by exporting OPENCLAW_EXTENSIONS="".
 OPENCLAW_EXTENSIONS="${OPENCLAW_EXTENSIONS-feishu}"
 OPENCLAW_INSTALL_BROWSER="${OPENCLAW_INSTALL_BROWSER:-}"
+OPENCLAW_DOCKER_APT_PACKAGES="${OPENCLAW_DOCKER_APT_PACKAGES:-}"
+OPENCLAW_INSTALL_DOCKER_CLI="${OPENCLAW_INSTALL_DOCKER_CLI:-}"
 
 echo "==> Provisioning instance: $COMPOSE_PROJECT_NAME (runtime=$RUNTIME_CMD)"
 echo "    Config dir:  $OPENCLAW_CONFIG_DIR"
@@ -199,6 +203,12 @@ if ! "$RUNTIME_CMD" image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
   if [[ -n "${OPENCLAW_INSTALL_BROWSER:-}" ]]; then
     BUILD_ARGS+=(--build-arg "OPENCLAW_INSTALL_BROWSER=$OPENCLAW_INSTALL_BROWSER")
   fi
+  if [[ -n "${OPENCLAW_DOCKER_APT_PACKAGES:-}" ]]; then
+    BUILD_ARGS+=(--build-arg "OPENCLAW_DOCKER_APT_PACKAGES=$OPENCLAW_DOCKER_APT_PACKAGES")
+  fi
+  if [[ -n "${OPENCLAW_INSTALL_DOCKER_CLI:-}" ]]; then
+    BUILD_ARGS+=(--build-arg "OPENCLAW_INSTALL_DOCKER_CLI=$OPENCLAW_INSTALL_DOCKER_CLI")
+  fi
   "$RUNTIME_CMD" build \
     "${BUILD_ARGS[@]}" \
     -t "$IMAGE_NAME" \
@@ -209,6 +219,14 @@ else
   if [[ -n "${OPENCLAW_INSTALL_BROWSER:-}" ]]; then
     echo "    NOTE: OPENCLAW_INSTALL_BROWSER is set but did not apply because image build was skipped."
     echo "          Rebuild image manually (or remove existing image) to bake browser dependencies."
+  fi
+  if [[ -n "${OPENCLAW_DOCKER_APT_PACKAGES:-}" ]]; then
+    echo "    NOTE: OPENCLAW_DOCKER_APT_PACKAGES is set but did not apply because image build was skipped."
+    echo "          Rebuild image manually (or remove existing image) to bake extra apt packages."
+  fi
+  if [[ -n "${OPENCLAW_INSTALL_DOCKER_CLI:-}" ]]; then
+    echo "    NOTE: OPENCLAW_INSTALL_DOCKER_CLI is set but did not apply because image build was skipped."
+    echo "          Rebuild image manually (or remove existing image) to bake Docker CLI."
   fi
 fi
 
